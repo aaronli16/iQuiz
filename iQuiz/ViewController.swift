@@ -109,6 +109,19 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         return cell
     }
+    override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
+        if segue.identifier == "showQuestion" {
+            // Get the selected quiz
+            if let indexPath = tableView.indexPathForSelectedRow {
+                let selectedQuiz = quizzes[indexPath.row]
+                
+                // Pass it to QuestionViewController
+                if let questionVC = segue.destination as? QuestionViewController {
+                    questionVC.quiz = selectedQuiz
+                }
+            }
+        }
+    }
 
 
 }
