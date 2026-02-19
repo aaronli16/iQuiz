@@ -25,8 +25,8 @@ class QuestionViewController: UIViewController {
     var selectedAnswerIndex: Int?
     var score = 0
 
-    override func viewDidLoad() {
-        super.viewDidLoad()
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
         displayCurrentQuestion()
     }
     func displayCurrentQuestion() {
@@ -78,25 +78,44 @@ class QuestionViewController: UIViewController {
     }
     
     @IBAction func submitButtonTapped(_ sender: Any) {
-        print("🔵 Submit button was tapped!")
+        print("🟢 Submit button was tapped!")
+        
+        
         guard let selectedIndex = selectedAnswerIndex else {
-        // Show alert if no answer selected
-        let alert = UIAlertController(title: "No Answer Selected", message: "Please select an answer before submitting.", preferredStyle: .alert)
+            let alert = UIAlertController(title: "No Answer Selected", message: "Please select an answer before submitting.", preferredStyle: .alert)
             alert.addAction(UIAlertAction(title: "OK", style: .default))
             present(alert, animated: true)
             return
         }
-            
-         
+        
+        
         let question = quiz.questions[currentQuestionIndex]
         let isCorrect = (selectedIndex == question.correctAnswerIndex)
-            
+        
         if isCorrect {
             score += 1
         }
-            
-            
+        
         print("Answer was \(isCorrect ? "correct" : "incorrect")")
         print("Current score: \(score)")
+        
+        
+        performSegue(withIdentifier: "showAnswer", sender: nil)
+    }
+
+    
+    override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
+        if segue.identifier == "showAnswer" {
+            if let answerVC = segue.destination as? AnswerViewController {
+                
+                answerVC.quiz = quiz
+                answerVC.currentQuestionIndex = currentQuestionIndex
+                answerVC.userAnswer = selectedAnswerIndex
+                
+                let question = quiz.questions[currentQuestionIndex]
+                answerVC.isCorrect = (selectedAnswerIndex == question.correctAnswerIndex)
+                answerVC.score = score
+            }
+        }
     }
 }
