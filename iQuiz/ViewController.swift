@@ -26,11 +26,11 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
                     self.quizzes = quizzes
                     self.tableView.reloadData()
                 case .failure:
+                    // Always notify user of network failure
+                    self.showNetworkError()
                     if let localQuizzes = QuizDataManager.shared.loadLocalQuizzes() {
                         self.quizzes = localQuizzes
                         self.tableView.reloadData()
-                    } else {
-                        self.showNetworkError()
                     }
                 }
             }
@@ -42,24 +42,15 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             DispatchQueue.main.async {
                 switch result {
                 case .success(let quizzes):
-                    print("SUCCESS: \(quizzes.count) quizzes")
-                    for quiz in quizzes {
-                        print("\(quiz.title): \(quiz.questions.count) questions")
-                    }
                     self.quizzes = quizzes
                     self.tableView.reloadData()
-                case .failure(let error):
-                    print("NETWORK FAILED: \(error.localizedDescription)")
+                case .failure:
+                    // Always notify user of network failure
+                    self.showNetworkError()
+                    // Still load from cache if available
                     if let localQuizzes = QuizDataManager.shared.loadLocalQuizzes() {
-                        print("LOADED FROM CACHE: \(localQuizzes.count) quizzes")
-                        for quiz in localQuizzes {
-                            print("\(quiz.title): \(quiz.questions.count) questions")
-                        }
                         self.quizzes = localQuizzes
                         self.tableView.reloadData()
-                    } else {
-                        print("USING HARDCODED FALLBACK")
-                        self.showNetworkError()
                     }
                 }
             }
