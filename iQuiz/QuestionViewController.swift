@@ -27,6 +27,7 @@ class QuestionViewController: UIViewController {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        print("QuestionVC - quiz: \(quiz?.title ?? "NIL"), questions: \(quiz?.questions.count ?? -1)")
         displayCurrentQuestion()
     }
     func displayCurrentQuestion() {

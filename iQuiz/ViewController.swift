@@ -9,83 +9,99 @@ import UIKit
 
 class ViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
     @IBOutlet weak var tableView: UITableView!
-    var quizzes: [Quiz] = [
-        Quiz(
-            title: "EDM",
-            description: "Test your electronic music knowledge!",
-            iconName: "edm",
-            questions: [
-                Question(
-                    text: "Who is known as the 'King of Trance'?",
-                    answers: ["Armin van Buuren", "Tiësto", "Paul van Dyk", "Above & Beyond"],
-                    correctAnswerIndex: 0
-                ),
-                Question(
-                    text: "Which festival is the largest EDM event in the world?",
-                    answers: ["Ultra Music Festival", "Tomorrowland", "Electric Daisy Carnival", "Coachella"],
-                    correctAnswerIndex: 1
-                ),
-                Question(
-                    text: "What does BPM stand for in music production?",
-                    answers: ["Beats Per Measure", "Bass Power Mix", "Beats Per Minute", "Binary Pattern Mode"],
-                    correctAnswerIndex: 2
-                )
-            ]
-        ),
-        Quiz(
-            title: "Startups",
-            description: "How well do you know startup culture?",
-            iconName: "startups",
-            questions: [
-                Question(
-                    text: "What does MVP stand for in startup terminology?",
-                    answers: ["Most Valuable Player", "Minimum Viable Product", "Maximum Value Proposition", "Market Validation Process"],
-                    correctAnswerIndex: 1
-                ),
-                Question(
-                    text: "Which startup accelerator is considered the most prestigious?",
-                    answers: ["Techstars", "500 Startups", "Y Combinator", "AngelPad"],
-                    correctAnswerIndex: 2
-                ),
-                Question(
-                    text: "What is a 'unicorn' in startup terminology?",
-                    answers: ["A mythical startup that doesn't exist", "A startup valued at over $1 billion", "A founder who starts multiple companies", "A company with perfect product-market fit"],
-                    correctAnswerIndex: 1
-                )
-            ]
-        ),
-        Quiz(
-            title: "Business",
-            description: "Master the fundamentals of business!",
-            iconName: "business",
-            questions: [
-                Question(
-                    text: "What does ROI stand for?",
-                    answers: ["Return On Investment", "Rate Of Interest", "Revenue Over Income", "Risk Of Inflation"],
-                    correctAnswerIndex: 0
-                ),
-                Question(
-                    text: "What is a P&L statement?",
-                    answers: ["Profit and Loss", "People and Labor", "Product and Logistics", "Planning and Leadership"],
-                    correctAnswerIndex: 0
-                ),
-                Question(
-                    text: "What does B2B mean?",
-                    answers: ["Back to Basics", "Business to Business", "Buy to Build", "Brand to Buyer"],
-                    correctAnswerIndex: 1
-                )
-            ]
-        )
-    ]
+    var quizzes: [Quiz] = []
     override func viewDidLoad() {
         super.viewDidLoad()
-        // Do any additional setup after loading the view.
+        loadQuizData()
+        let refreshControl = UIRefreshControl()
+        refreshControl.addTarget(self, action: #selector(handleRefresh), for: .valueChanged)
+        tableView.refreshControl = refreshControl
     }
+    @objc func handleRefresh() {
+        QuizDataManager.shared.fetchQuizzes { result in
+            DispatchQueue.main.async {
+                self.tableView.refreshControl?.endRefreshing()
+                switch result {
+                case .success(let quizzes):
+                    self.quizzes = quizzes
+                    self.tableView.reloadData()
+                case .failure:
+                    if let localQuizzes = QuizDataManager.shared.loadLocalQuizzes() {
+                        self.quizzes = localQuizzes
+                        self.tableView.reloadData()
+                    } else {
+                        self.showNetworkError()
+                    }
+                }
+            }
+        }
+    }
+
+    func loadQuizData() {
+        QuizDataManager.shared.fetchQuizzes { result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let quizzes):
+                    print("SUCCESS: \(quizzes.count) quizzes")
+                    for quiz in quizzes {
+                        print("\(quiz.title): \(quiz.questions.count) questions")
+                    }
+                    self.quizzes = quizzes
+                    self.tableView.reloadData()
+                case .failure(let error):
+                    print("NETWORK FAILED: \(error.localizedDescription)")
+                    if let localQuizzes = QuizDataManager.shared.loadLocalQuizzes() {
+                        print("LOADED FROM CACHE: \(localQuizzes.count) quizzes")
+                        for quiz in localQuizzes {
+                            print("\(quiz.title): \(quiz.questions.count) questions")
+                        }
+                        self.quizzes = localQuizzes
+                        self.tableView.reloadData()
+                    } else {
+                        print("USING HARDCODED FALLBACK")
+                        self.showNetworkError()
+                    }
+                }
+            }
+        }
+    }
+
+    func showNetworkError() {
+        let alert = UIAlertController(
+            title: "Network Unavailable",
+            message: "Could not fetch quiz data. Using cached data.",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
+    }
+
     @IBAction func settingsButtonTapped(_ sender: UIBarButtonItem) {
-        let alert = UIAlertController(title: "Settings", message: "Settings go here", preferredStyle: .alert)
-        let okAction = UIAlertAction(title: "OK", style: .default, handler: nil)
-        alert.addAction(okAction)
-        present(alert, animated: true, completion: nil)
+        let alert = UIAlertController(title: "Settings", message: nil, preferredStyle: .alert)
+        
+        // URL text field
+        alert.addTextField { textField in
+            textField.text = QuizDataManager.shared.serverURL
+            textField.placeholder = "Quiz data URL"
+        }
+        
+        // Check Now button
+        alert.addAction(UIAlertAction(title: "Check Now", style: .default) { _ in
+            if let url = alert.textFields?.first?.text, !url.isEmpty {
+                QuizDataManager.shared.serverURL = url
+            }
+            self.loadQuizData()
+        })
+        
+        // Open Apple Settings
+        alert.addAction(UIAlertAction(title: "Open Settings App", style: .default) { _ in
+            if let url = URL(string: UIApplication.openSettingsURLString) {
+                UIApplication.shared.open(url)
+            }
+        })
+        
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        present(alert, animated: true)
     }
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return quizzes.count
@@ -111,11 +127,9 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     }
     override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
         if segue.identifier == "showQuestion" {
-            // Get the selected quiz
             if let indexPath = tableView.indexPathForSelectedRow {
                 let selectedQuiz = quizzes[indexPath.row]
-                
-                // Pass it to QuestionViewController
+                print("Segue - passing quiz: \(selectedQuiz.title), questions: \(selectedQuiz.questions.count)")
                 if let questionVC = segue.destination as? QuestionViewController {
                     questionVC.quiz = selectedQuiz
                 }
